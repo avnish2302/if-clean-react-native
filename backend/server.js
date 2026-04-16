@@ -1,44 +1,47 @@
-import express from "express"
-import dotenv from "dotenv"
-import multer from "multer"
-import cors from "cors"
-import { GoogleGenAI } from "@google/genai"
+import express from "express"                                         // expres is web server framework. It handlesroutes, requests, responses
+import dotenv from "dotenv"                                           // reads .env file and loads into process.env
+import multer from "multer"                                           // middleware to handle multipart/form-data
+import cors from "cors"                                               // allows frontend to call backend
+import { GoogleGenAI } from "@google/genai"                           // gemini SDK wrapper. Abstracts HTTP calls to google API
 
 dotenv.config()
 
 const app = express()
 
-const upload = multer({
-  limits: { fileSize: 6 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (!file.mimetype.startsWith("image/")) {
-      return cb(new Error("Only image files allowed"))
-    }
-    cb(null, true)
+const upload = multer({                                               // multer configuration. This creates a file upload handler
+  limits: { fileSize: 6 * 1024 * 1024 },                              // max file size = 6 MB. If exceeded multer throws error before route logic
+  fileFilter: (req, file, cb) => {                                    // this is the function multer runs for every file
+    const isImage = file.mimetype.startsWith("image/")
+    
+    if (!isImage) {                                                   // checks MIME type. Ensures only images allowed
+      cb(new Error("Only images allowed"))                            // reject file
+    } else {
+      cb(null, true)                                                    // null -> no error, true -> accept file
   }
+}
 })
 
-app.use(cors())
-app.use(express.json())
+app.use(cors())                                                       // allows cross origin requests
+app.use(express.json())                                               // parses JSON body (not used here for file upload)
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY })
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY })           // creates API client. Uses env variable
 
 app.get("/", (req, res) => { res.json({ message: "Hit root URL" }) })
 
 
-app.post("/analyze-cleanliness", (req, res, next) => {
-  upload.single("image")(req, res, (err) => {
+app.post("/analyze-cleanliness", (req, res, next) => {                // main route
+  upload.single("image")(req, res, (err) => {                         // parse multipart request. Extracts file. Stores in req.file
     if (err) {
-      if (err.code === "LIMIT_FILE_SIZE") {
-        return res.status(413).json({
+      if (err.code === "LIMIT_FILE_SIZE") {                           // file too large
+        return res.status(413).json({                                 // payload too large
           error: "Image is too large. Please select a smaller photo."
         })
       }
-      return res.status(400).json({ error: err.message })
+      return res.status(400).json({ error: "Invalid image upload" })  // invalid file
     }
-    next()
+    next()                                                            // move to next handler
   })
-}, async (req, res) => {
+  }, async (req, res) => {
     try {
         const file = req.file
 
@@ -117,7 +120,11 @@ app.post("/analyze-cleanliness", (req, res, next) => {
             })
             break
           } catch (err) {
-            console.log("Error:", err.status)
+            console.error("AI Error:", {
+              message: err.message,
+              status: err.status,
+              stack: err.stack
+            })
 
             if (err.status === 429) {
               return res.status(429).json({
@@ -137,8 +144,9 @@ app.post("/analyze-cleanliness", (req, res, next) => {
               continue
             }
 
+            console.error("Unexpected AI faliure :", err)
             return res.status(500).json({
-              error: "Something went wrong. Please try again."
+              error: "Server error. Please try again."
             })
           }
         }
@@ -234,11 +242,20 @@ app.post("/analyze-cleanliness", (req, res, next) => {
         res.json(parsed)
         console.log("RESULT :", parsed)
     } catch (err) {
-        console.error("SERVER ERROR:", err)
+        console.error("SERVER ERROR:", {
+          message: err.message,
+          stack: err.stack
+        })
         res.status(500).json({ error: "Request failed (API issue / server error)" })
     }
 })
 
+/*
 app.listen(process.env.PORT, () => {
   console.log("Server started at PORT :", process.env.PORT)
+})
+*/
+
+app.listen(process.env.PORT, () => {
+  console.log("Server is running at PORT :", process.env.PORT)
 })
