@@ -99,7 +99,7 @@ app.post("/analyze-cleanliness", (req, res, next) => {                // main ro
         const delay = (ms) => new Promise(res => setTimeout(res, ms))
         let response
 
-        for (let i = 0; i < 2 ; i++) {
+        for (let i = 0; i < 4 ; i++) {
           try {
             console.log(`Attempt ${i + 1}`)
             response = await ai.models.generateContent({
@@ -140,7 +140,7 @@ app.post("/analyze-cleanliness", (req, res, next) => {                // main ro
               }
 
               console.log("Retrying after 503...")
-              await delay(1500 * (i + 1))
+              await delay(2000 * Math.pow(2, i))
               continue
             }
 
