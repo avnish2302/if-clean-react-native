@@ -250,12 +250,8 @@ app.post("/analyze-cleanliness", (req, res, next) => {                // main ro
     }
 })
 
-/*
+
 app.listen(process.env.PORT, () => {
   console.log("Server started at PORT :", process.env.PORT)
 })
-*/
 
-app.listen(process.env.PORT, () => {
-  console.log("Server is running at PORT :", process.env.PORT)
-})
